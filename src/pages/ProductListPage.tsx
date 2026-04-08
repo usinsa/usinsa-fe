@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { productApi } from '@/api/productApi'
 import { cartApi } from '@/api/cartApi'
 import type { ProductResponse } from '@/api/types'
@@ -11,15 +11,19 @@ export default function ProductListPage() {
   const [error, setError] = useState<string | null>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const categoryId = searchParams.get('categoryId')
 
   useEffect(() => {
     loadProducts()
-  }, [])
+  }, [categoryId])
 
   const loadProducts = async () => {
     try {
       setLoading(true)
-      const data = await productApi.getAllProducts()
+      const data = categoryId
+        ? await productApi.getProductsByCategory(Number(categoryId))
+        : await productApi.getAllProducts()
       setProducts(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : '상품 목록을 불러오는데 실패했습니다.')
@@ -34,22 +38,22 @@ export default function ProductListPage() {
 
   const handleAddToCart = async (e: React.MouseEvent, productId: number) => {
     e.stopPropagation()
-    
+
     try {
       // 실제로는 상품 옵션을 선택해야 하지만 여기서는 간단하게 처리
       if (user?.memberId) {
         await cartApi.createCart({
           memberId: user.memberId,
           productOptionId: productId,
-          quantity: 1,
+          count: 1,
         })
       } else {
         await cartApi.createGuestCart({
           productOptionId: productId,
-          quantity: 1,
+          count: 1,
         })
       }
-      
+
       if (confirm('장바구니에 추가되었습니다. 장바구니로 이동하시겠습니까?')) {
         navigate('/cart')
       }
@@ -91,12 +95,12 @@ export default function ProductListPage() {
           {/* 정렬 옵션 추가 가능 */}
         </div>
       </div>
-      
+
       {/* 상품 그리드 */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
         {products.map((product) => (
-          <div 
-            key={product.id} 
+          <div
+            key={product.id}
             onClick={() => handleProductClick(product.id)}
             className="border rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all cursor-pointer group"
           >
@@ -105,7 +109,7 @@ export default function ProductListPage() {
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-gray-400">이미지 없음</span>
               </div>
-              
+
               {/* 호버 시 장바구니 버튼 */}
               <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
@@ -116,19 +120,19 @@ export default function ProductListPage() {
                 </button>
               </div>
             </div>
-            
+
             {/* 상품 정보 */}
             <div className="p-4">
               <div className="text-xs text-gray-500 mb-1 truncate">{product.brandName}</div>
               <h3 className="font-semibold mb-2 line-clamp-2 text-sm md:text-base min-h-[2.5rem]">
                 {product.name}
               </h3>
-              
+
               {/* 가격 */}
               <div className="mb-3">
                 <div className="text-lg md:text-xl font-bold">{product.price?.toLocaleString()}원</div>
               </div>
-              
+
               {/* 통계 정보 */}
               <div className="flex gap-3 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
@@ -142,7 +146,7 @@ export default function ProductListPage() {
           </div>
         ))}
       </div>
-      
+
       {/* 상품 없음 */}
       {products.length === 0 && (
         <div className="text-center py-20">
